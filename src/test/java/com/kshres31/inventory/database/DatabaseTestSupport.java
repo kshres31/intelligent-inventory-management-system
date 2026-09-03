@@ -13,7 +13,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
 
-final class DatabaseTestSupport implements AutoCloseable {
+public final class DatabaseTestSupport implements AutoCloseable {
     private static final List<Path> MIGRATIONS = List.of(
             Path.of("database", "001_schema.sql"),
             Path.of("database", "002_functions.sql"),
@@ -29,7 +29,7 @@ final class DatabaseTestSupport implements AutoCloseable {
         this.dataSource = dataSource;
     }
 
-    static DatabaseTestSupport start() throws IOException, SQLException {
+    public static DatabaseTestSupport start() throws IOException, SQLException {
         String externalUrl = System.getProperty("test.database.url");
         if (externalUrl != null && !externalUrl.isBlank()) {
             var externalDataSource = new PGSimpleDataSource();
@@ -51,7 +51,7 @@ final class DatabaseTestSupport implements AutoCloseable {
         return database;
     }
 
-    DataSource dataSource() {
+    public DataSource dataSource() {
         return dataSource;
     }
 

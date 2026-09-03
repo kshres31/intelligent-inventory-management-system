@@ -1,0 +1,11 @@
+package com.kshres31.inventory.model;
+
+public enum Permission {
+    VIEW_INVENTORY,
+    RECORD_STOCK_MOVEMENT,
+    ADJUST_INVENTORY,
+    MANAGE_PURCHASE_ORDERS,
+    MANAGE_PRODUCTS,
+    MANAGE_USERS,
+    RESOLVE_ALERTS
+}
