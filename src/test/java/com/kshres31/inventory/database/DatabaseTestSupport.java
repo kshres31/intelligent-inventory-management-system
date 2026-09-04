@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 public final class DatabaseTestSupport implements AutoCloseable {
     private static final List<Path> MIGRATIONS = List.of(
@@ -32,6 +33,7 @@ public final class DatabaseTestSupport implements AutoCloseable {
     public static DatabaseTestSupport start() throws IOException, SQLException {
         String externalUrl = System.getProperty("test.database.url");
         if (externalUrl != null && !externalUrl.isBlank()) {
+            requireDedicatedTestDatabase(externalUrl);
             var externalDataSource = new PGSimpleDataSource();
             externalDataSource.setUrl(externalUrl);
             externalDataSource.setUser(System.getProperty("test.database.user", "postgres"));
@@ -49,6 +51,16 @@ public final class DatabaseTestSupport implements AutoCloseable {
         var database = new DatabaseTestSupport(postgres, postgres.getPostgresDatabase());
         database.applyMigrations();
         return database;
+    }
+
+    private static void requireDedicatedTestDatabase(String url) {
+        String withoutQuery = url.split("\\?", 2)[0];
+        String databaseName = withoutQuery.substring(withoutQuery.lastIndexOf('/') + 1);
+        if (!databaseName.toLowerCase(Locale.ROOT).contains("test")) {
+            throw new IllegalArgumentException(
+                    "External integration tests require a disposable database whose name contains 'test'"
+            );
+        }
     }
 
     public DataSource dataSource() {

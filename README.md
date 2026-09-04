@@ -236,13 +236,16 @@ Run all tests with an embedded PostgreSQL instance:
 mvn test
 ```
 
-To run them against the Docker database instead:
+To run them against Docker, first create a dedicated disposable test database:
 
 ```powershell
-mvn "-Dtest.database.url=jdbc:postgresql://localhost:5432/inventory" `
+docker compose exec postgres createdb -U inventory_app inventory_test
+mvn "-Dtest.database.url=jdbc:postgresql://localhost:5432/inventory_test" `
     "-Dtest.database.user=inventory_app" `
     "-Dtest.database.password=local_inventory_password" test
 ```
+
+External integration tests drop and recreate the `public` schema. As a safety check, the test harness refuses database names that do not contain `test`. Never point it at a database that contains data you want to keep.
 
 The suite covers:
 

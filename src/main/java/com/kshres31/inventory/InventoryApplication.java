@@ -39,6 +39,7 @@ public final class InventoryApplication {
             cli.run(args);
         } catch (RuntimeException error) {
             System.err.println("Error: " + error.getMessage());
+            System.exit(1);
         }
     }
 }
