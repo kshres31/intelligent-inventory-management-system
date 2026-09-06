@@ -50,12 +50,30 @@ class InventoryServiceTest {
         assertEquals(0, repository.callCount);
     }
 
+    @Test
+    void convertsHistoryPagesToBoundedRepositoryQueries() {
+        var employee = user(Role.EMPLOYEE, true);
+
+        var page = service.transactionHistory(employee, 42, 3, 25);
+
+        assertEquals(3, page.pageNumber());
+        assertEquals(25, page.pageSize());
+        assertEquals(26, repository.historyLimit);
+        assertEquals(50, repository.historyOffset);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.transactionHistory(employee, 42, 0, 25));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.transactionHistory(employee, 42, 1, 101));
+    }
+
     private AppUser user(Role role, boolean active) {
         return new AppUser(10, "test", "Test User", null, role, active);
     }
 
     private static final class RecordingInventoryRepository implements InventoryRepository {
         private int callCount;
+        private int historyLimit;
+        private int historyOffset;
 
         @Override
         public int receive(long productId, long warehouseId, int quantity, long actorUserId, String reference) {
@@ -101,8 +119,10 @@ class InventoryServiceTest {
         }
 
         @Override
-        public List<StockTransaction> transactionHistory(long productId, int limit) {
+        public List<StockTransaction> transactionHistory(long productId, int limit, int offset) {
             callCount++;
+            historyLimit = limit;
+            historyOffset = offset;
             return List.of();
         }
     }

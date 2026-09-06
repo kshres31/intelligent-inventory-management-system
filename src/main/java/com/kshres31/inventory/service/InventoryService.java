@@ -5,6 +5,7 @@ import com.kshres31.inventory.model.AppUser;
 import com.kshres31.inventory.model.InventoryItem;
 import com.kshres31.inventory.model.Permission;
 import com.kshres31.inventory.model.StockTransaction;
+import com.kshres31.inventory.model.TransactionHistoryPage;
 import com.kshres31.inventory.repository.InventoryRepository;
 
 import java.util.List;
@@ -66,12 +67,26 @@ public final class InventoryService {
         return inventory.search(query, lowStockOnly);
     }
 
-    public List<StockTransaction> transactionHistory(AppUser actor, long productId, int limit) {
+    public TransactionHistoryPage transactionHistory(AppUser actor, long productId, int pageNumber, int pageSize) {
         requirePermission(actor, Permission.VIEW_INVENTORY);
-        if (limit < 1 || limit > 500) {
-            throw new IllegalArgumentException("History limit must be between 1 and 500");
+        if (pageNumber < 1) {
+            throw new IllegalArgumentException("History page number must be at least 1");
         }
-        return inventory.transactionHistory(productId, limit);
+        if (pageSize < 1 || pageSize > 100) {
+            throw new IllegalArgumentException("History page size must be between 1 and 100");
+        }
+
+        int offset;
+        try {
+            offset = Math.multiplyExact(pageNumber - 1, pageSize);
+        } catch (ArithmeticException error) {
+            throw new IllegalArgumentException("History page is too large", error);
+        }
+
+        List<StockTransaction> rows = inventory.transactionHistory(productId, pageSize + 1, offset);
+        boolean hasNext = rows.size() > pageSize;
+        List<StockTransaction> items = hasNext ? rows.subList(0, pageSize) : rows;
+        return new TransactionHistoryPage(items, pageNumber, pageSize, hasNext);
     }
 
     private void requirePermission(AppUser actor, Permission permission) {

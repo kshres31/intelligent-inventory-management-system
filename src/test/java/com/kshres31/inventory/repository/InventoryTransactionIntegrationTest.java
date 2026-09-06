@@ -108,6 +108,21 @@ class InventoryTransactionIntegrationTest {
     }
 
     @Test
+    void transactionHistorySupportsStablePages() {
+        for (int sequence = 1; sequence <= 5; sequence++) {
+            inventory.receive(productId, chicagoId, 1, employeeId, "PAGE-" + sequence);
+        }
+
+        var firstPage = inventory.transactionHistory(productId, 2, 0);
+        var secondPage = inventory.transactionHistory(productId, 2, 2);
+
+        assertEquals(List.of("PAGE-5", "PAGE-4"),
+                firstPage.stream().map(transaction -> transaction.reference()).toList());
+        assertEquals(List.of("PAGE-3", "PAGE-2"),
+                secondPage.stream().map(transaction -> transaction.reference()).toList());
+    }
+
+    @Test
     void lowStockAlertIsDeduplicatedAndResolvedAfterRecovery() throws SQLException {
         inventory.sell(productId, chicagoId, 2, employeeId, "SALE-A");
         inventory.sell(productId, chicagoId, 1, employeeId, "SALE-B");

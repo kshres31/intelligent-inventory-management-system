@@ -146,19 +146,20 @@ public final class JdbcInventoryRepository implements InventoryRepository {
     }
 
     @Override
-    public List<StockTransaction> transactionHistory(long productId, int limit) {
+    public List<StockTransaction> transactionHistory(long productId, int limit, int offset) {
         String sql = """
                 SELECT id, product_id, warehouse_id, transaction_type, quantity_change,
                        quantity_before, quantity_after, actor_user_id, transfer_id, reference, created_at
                 FROM stock_transaction
                 WHERE product_id = ?
                 ORDER BY created_at DESC, id DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """;
         try (var connection = connections.open();
              var statement = connection.prepareStatement(sql)) {
             statement.setLong(1, productId);
             statement.setInt(2, limit);
+            statement.setInt(3, offset);
             try (var result = statement.executeQuery()) {
                 var transactions = new ArrayList<StockTransaction>();
                 while (result.next()) {

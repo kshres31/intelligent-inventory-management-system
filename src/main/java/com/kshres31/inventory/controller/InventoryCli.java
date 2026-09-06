@@ -135,13 +135,17 @@ public final class InventoryCli {
 
     private void showTransactions(AppUser actor, String[] args) {
         requireArgs(args, 3);
-        int limit = args.length > 3 ? intArg(args, 3) : 20;
-        inventory.transactionHistory(actor, longArg(args, 2), limit).forEach(transaction -> out.printf(
+        int pageNumber = args.length > 3 ? intArg(args, 3) : 1;
+        int pageSize = args.length > 4 ? intArg(args, 4) : 20;
+        var page = inventory.transactionHistory(actor, longArg(args, 2), pageNumber, pageSize);
+        page.items().forEach(transaction -> out.printf(
                 "%s | warehouse=%d | change=%+d | %d -> %d | actor=%d | %s%n",
                 transaction.type(), transaction.warehouseId(), transaction.quantityChange(),
                 transaction.quantityBefore(), transaction.quantityAfter(), transaction.actorUserId(),
                 transaction.reference()
         ));
+        out.printf("Page %d | items=%d | hasNext=%s%n",
+                page.pageNumber(), page.items().size(), page.hasNext());
     }
 
     private void showAlerts(AppUser actor, String[] args) {
@@ -298,7 +302,7 @@ public final class InventoryCli {
 
     private void printHelp() {
         out.println("Usage: <username> <command> [arguments]");
-        out.println("Read: inventory [query], low-stock, transactions <productId> [limit], alerts [all]");
+        out.println("Read: inventory [query], low-stock, transactions <productId> [page] [pageSize], alerts [all]");
         out.println("Reports: most-moved [limit], discrepancies [limit], audit [limit]");
         out.println("Stock: receive|sell <productId> <warehouseId> <quantity> [reference]");
         out.println("       transfer <productId> <fromId> <toId> <quantity> [reference]");

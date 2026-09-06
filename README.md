@@ -206,7 +206,7 @@ Record a sale and inspect its history on a fresh seed database:
 
 ```powershell
 mvn exec:java -Dexec.args="employee.demo sell 1 1 3 SALE-DEMO-001"
-mvn exec:java -Dexec.args="employee.demo transactions 1 20"
+mvn exec:java -Dexec.args="employee.demo transactions 1 1 20"
 ```
 
 Manager workflows:
@@ -262,6 +262,7 @@ The suite covers:
 - role permissions;
 - report queries;
 - purchase-order state changes.
+- stable, bounded transaction-history pagination.
 
 GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes and pull requests.
 
@@ -290,7 +291,7 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 - Link purchase-order receiving directly to received line quantities.
 - Add barcode scanning and a web interface without moving business rules into UI code.
 - Add configurable per-role permissions and least-privilege PostgreSQL grants.
-- Add pagination for large histories and reports.
+- Extend pagination from transaction history to the remaining reports.
 - Measure query plans with realistic data volumes before adding more indexes.
 
 No production usage, external users, performance metrics, or field-study results are claimed for this project.

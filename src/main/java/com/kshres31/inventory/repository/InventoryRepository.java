@@ -23,5 +23,5 @@ public interface InventoryRepository {
 
     List<InventoryItem> search(String query, boolean lowStockOnly);
 
-    List<StockTransaction> transactionHistory(long productId, int limit);
+    List<StockTransaction> transactionHistory(long productId, int limit, int offset);
 }
