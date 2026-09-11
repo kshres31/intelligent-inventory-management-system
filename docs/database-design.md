@@ -27,6 +27,8 @@ erDiagram
     SUPPLIER ||--o{ PURCHASE_ORDER : receives
     WAREHOUSE ||--o{ PURCHASE_ORDER : delivered_to
     PURCHASE_ORDER ||--|{ PURCHASE_ORDER_LINE : contains
+    PURCHASE_ORDER_LINE ||--o{ PURCHASE_ORDER_RECEIPT : receives
+    APP_USER ||--o{ PURCHASE_ORDER_RECEIPT : records
     PRODUCT ||--o{ INVENTORY_ALERT : raises
     WAREHOUSE ||--o{ INVENTORY_ALERT : raises
     PRODUCT ||--o{ INVENTORY_COUNT : counted
@@ -53,7 +55,10 @@ An append-only movement ledger. `quantity_change` is signed, while `quantity_bef
 
 ### `purchase_order` and `purchase_order_line`
 
-Purchase orders track expected inbound stock. Receiving stock can reference an order without making purchase-order workflow part of the inventory consistency boundary.
+Purchase orders track expected inbound stock. `receive_purchase_order_line` commits
+received line quantities, derived order status, stock, ledger, audit, alerts and a
+`purchase_order_receipt` retry record in one transaction. Receipt keys are unique per
+order. See [receiving design](purchase-order-receipts.md) for guarantees and upgrade steps.
 
 ### `inventory_alert`
 

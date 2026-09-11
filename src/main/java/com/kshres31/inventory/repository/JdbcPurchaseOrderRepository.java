@@ -2,6 +2,7 @@ package com.kshres31.inventory.repository;
 
 import com.kshres31.inventory.config.ConnectionFactory;
 import com.kshres31.inventory.exception.DataAccessException;
+import com.kshres31.inventory.exception.InventoryOperationException;
 import com.kshres31.inventory.model.PurchaseOrderStatus;
 import com.kshres31.inventory.model.PurchaseOrderSummary;
 
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public final class JdbcPurchaseOrderRepository implements PurchaseOrderRepository {
     private final ConnectionFactory connections;
@@ -67,6 +69,9 @@ public final class JdbcPurchaseOrderRepository implements PurchaseOrderRepositor
     @Override
     public boolean changeStatus(long purchaseOrderId, PurchaseOrderStatus expectedStatus,
                                 PurchaseOrderStatus nextStatus) {
+        if (expectedStatus == null || nextStatus == null || !expectedStatus.canTransitionTo(nextStatus)) {
+            throw new IllegalArgumentException("Invalid manual purchase-order transition; use receiving for deliveries");
+        }
         String sql = """
                 UPDATE purchase_order
                 SET status = ?, updated_at = CURRENT_TIMESTAMP
@@ -124,6 +129,36 @@ public final class JdbcPurchaseOrderRepository implements PurchaseOrderRepositor
             }
         } catch (SQLException error) {
             throw new DataAccessException("Could not list purchase orders", error);
+        }
+    }
+
+    @Override
+    public int receiveLine(long purchaseOrderId, long productId, int quantity, long actorUserId, UUID requestId) {
+        try (var connection = connections.open()) {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            try (var statement = connection.prepareStatement("SELECT receive_purchase_order_line(?, ?, ?, ?, ?)")) {
+                statement.setLong(1, purchaseOrderId);
+                statement.setLong(2, productId);
+                statement.setInt(3, quantity);
+                statement.setLong(4, actorUserId);
+                statement.setObject(5, requestId);
+                int receivedQuantity;
+                try (var result = statement.executeQuery()) {
+                    result.next();
+                    receivedQuantity = result.getInt(1);
+                }
+                connection.commit();
+                return receivedQuantity;
+            } catch (SQLException | RuntimeException error) {
+                rollback(connection, error);
+                throw error;
+            }
+        } catch (SQLException error) {
+            if ("P0001".equals(error.getSQLState()) || "23514".equals(error.getSQLState())) {
+                throw new InventoryOperationException(error.getMessage(), error);
+            }
+            throw new DataAccessException("Could not receive purchase-order line", error);
         }
     }
 
