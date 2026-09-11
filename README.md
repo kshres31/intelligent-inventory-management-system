@@ -14,6 +14,7 @@ I built this as a student portfolio project around the parts of inventory softwa
 - Creates and resolves low-stock and discrepancy alerts.
 - Keeps stock-transaction and inventory-audit histories.
 - Creates purchase orders, adds draft lines, and guards status transitions.
+- Receives purchase-order lines atomically with stock, audit entries and alerts; repeated request UUIDs return the original result without receiving twice.
 - Reports current inventory, low stock, recent movements, discrepancies, alerts, and audits.
 
 ## Technology
@@ -230,6 +231,29 @@ Run `mvn exec:java -Dexec.args="help"` for every supported command and argument 
 
 ## Tests
 
+### Receive a purchase order
+
+After creating an order and adding its lines, submit it with `order-status <orderId> DRAFT SUBMITTED`.
+Then receive a delivery using its order and product IDs:
+
+```powershell
+$receiptId = [guid]::NewGuid().ToString()
+mvn exec:java "-Dexec.args=manager.demo receive-order-line 1 1 4 $receiptId"
+```
+
+Use the same UUID and identical arguments to retry that delivery after an uncertain result.
+Use a new UUID for a different delivery. Receipt keys are scoped to an order and must not
+be reused with a different product, quantity, or actor. The response is the line's cumulative
+received quantity **at the original receipt**, even if later deliveries have arrived.
+
+The application derives `PARTIALLY_RECEIVED` and `RECEIVED` from line quantities.
+They cannot be assigned through `order-status`. Cancelling a partially received order
+preserves delivered stock and rejects further deliveries; reversing stock is a separate operation.
+Ordinary `receive` commands remain standalone stock movements and do not have this retry guarantee.
+See [receipt design and upgrade instructions](docs/purchase-order-receipts.md).
+
+### Run the suite
+
 Run all tests with an embedded PostgreSQL instance:
 
 ```powershell
@@ -263,6 +287,8 @@ The suite covers:
 - report queries;
 - purchase-order state changes.
 - stable, bounded transaction-history pagination.
+- partial and complete purchase-order receiving, duplicate delivery requests, forced contention,
+  cancellation, and rollback after stock, audit, alert, and order writes.
 
 GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes and pull requests.
 
@@ -288,7 +314,7 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 
 - Add real authentication and securely hashed credentials.
 - Introduce database migration version tracking for upgrades to existing installations.
-- Link purchase-order receiving directly to received line quantities.
+- Add receipt browsing and supplier shipment identifiers.
 - Add barcode scanning and a web interface without moving business rules into UI code.
 - Add configurable per-role permissions and least-privilege PostgreSQL grants.
 - Extend pagination from transaction history to the remaining reports.
