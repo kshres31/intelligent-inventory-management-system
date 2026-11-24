@@ -44,3 +44,15 @@ jobs:
           -Dtest.database.user=inventory_test
           -Dtest.database.password=test_only_password
           test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Build application image
+        run: docker build --tag inventory-app:ci .
+
+      - name: Check the image starts and prints help
+        run: docker run --rm --entrypoint java inventory-app:ci -cp "app.jar:lib/*" com.kshres31.inventory.InventoryApplication help

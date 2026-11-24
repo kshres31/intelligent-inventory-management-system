@@ -15,5 +15,32 @@ services:
     volumes:
       - inventory_postgres_data:/var/lib/postgresql/data
 
+  # Optional application containers: docker compose --profile app up -d --build
+  migrate:
+    build: .
+    profiles: ["app"]
+    command: ["migrate"]
+    environment: &app-database
+      INVENTORY_DB_URL: jdbc:postgresql://postgres:5432/inventory
+      INVENTORY_DB_USER: inventory_app
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD:-local_inventory_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: .
+    profiles: ["app"]
+    command: ["serve"]
+    environment:
+      <<: *app-database
+      INVENTORY_ALERT_WEBHOOK_URL: ${INVENTORY_ALERT_WEBHOOK_URL:-}
+      INVENTORY_ALERT_WEBHOOK_SECRET: ${INVENTORY_ALERT_WEBHOOK_SECRET:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   inventory_postgres_data:

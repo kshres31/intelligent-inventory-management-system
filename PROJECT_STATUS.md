@@ -8,9 +8,9 @@ Last updated: 2026-11-24. This file lets work resume across sessions without los
 | --- | --- |
 | Repository | https://github.com/kshres31/intelligent-inventory-management-system |
 | Default branch | `main` |
-| Phase | Feature-complete against the brief; hardening next |
-| Open work | `feature/http-api` (`c3569e8`, PR #5); PRs #1–#4 merged to `main` on 2026-11-24 |
-| Merged to `main` | `8eaad0d` (merge of #4: alerts, migrations, authentication, receipts) |
+| Phase | Complete against the brief; optional hardening listed below |
+| Open work | None. PRs #1–#5 merged to `main` on 2026-11-24; Docker packaging in PR #6 |
+| Merged to `main` | `0dab8cf` (merge of #5: HTTP API) |
 | Tests | `mvn test`: 91 run, 0 failures, 0 skipped, on embedded PostgreSQL and on an external PostgreSQL 16 database (2026-11-24) |
 
 
@@ -39,17 +39,21 @@ Mapped to the project brief.
   concurrent dispatchers; permission enforcement; data-integrity constraints; webhook HTTP.
 - **Migrations:** version-tracked runner (`migrate`, `migration-status`, `baseline`) with
   checksums, per-file transactions, advisory lock, and out-of-order protection.
-- **Tooling:** Docker Compose PostgreSQL, GitHub Actions against PostgreSQL 16.
+- **Tooling:** Dockerfile (non-root, multi-stage) and Compose `app` profile (postgres → migrate → api);
+  GitHub Actions runs tests against PostgreSQL 16 and builds the image.
 
-## Remaining functionality (next milestones, in order)
+## Optional follow-ups (not required by the brief)
 
 1. **Least-privilege database role.** Separate owner and application roles with grants.
 2. Report pagination beyond transaction history.
 3. Product, user and purchase-order endpoints in the API (CLI-only today).
-4. A Dockerfile for the application and a Compose service that runs `migrate` then `serve`.
 
 ## Known issues and limitations
 
+- The Docker image is built in CI; it has not been run end-to-end in a container from this
+  workspace (no Docker daemon). The packaged jar + lib layout was run locally against PostgreSQL 16.
+- The notification worker is not a Compose service: it needs a session token, which expires after
+  8 hours. Run `dispatch-notifications` from a scheduler with a fresh login instead.
 - Demo mode (`INVENTORY_DEMO_MODE=true`) skips passwords by design; it is off by default.
 - No MFA, SSO or email password reset (out of scope for a CLI).
 - Notification delivery is at-least-once. Receivers must de-duplicate by

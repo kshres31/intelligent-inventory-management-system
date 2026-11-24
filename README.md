@@ -298,6 +298,15 @@ mvn -q compile exec:java "-Dexec.args=serve"   # http://127.0.0.1:8080/api/v1
 
 Sign in with `POST /api/v1/sessions`, then send `Authorization: Bearer <token>`. Endpoints, error codes and security notes are in [HTTP API](docs/api.md).
 
+### Run everything in Docker
+
+```powershell
+docker compose --profile app up -d --build   # postgres, then migrate, then the API
+mvn -q compile exec:java "-Dexec.args=bootstrap-admin admin.demo"   # or use the API once a password exists
+```
+
+The `migrate` container applies pending migrations and exits; the `api` container starts only after it succeeds and is published on `127.0.0.1:8080`. Without `--profile app`, Compose starts only PostgreSQL for local development. The image runs as a non-root user.
+
 ## Tests
 
 ### Receive a purchase order
