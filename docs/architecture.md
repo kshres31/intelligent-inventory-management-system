@@ -22,6 +22,8 @@ flowchart LR
 - `service`: permission checks and use-case coordination.
 - `controller`: command-line request handling and output formatting.
 - `exception`: domain-specific failures that callers can handle clearly.
+- `migration`: version-tracked runner that applies the numbered SQL files.
+- `notification`: alert-notification dispatcher, retry policy, and delivery channels.
 - `database`: schema, stored functions, triggers, and seed data.
 
 ## Transaction boundary

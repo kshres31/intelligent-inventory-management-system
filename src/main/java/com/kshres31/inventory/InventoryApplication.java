@@ -3,6 +3,8 @@ package com.kshres31.inventory;
 import com.kshres31.inventory.config.DatabaseConfig;
 import com.kshres31.inventory.config.JdbcConnectionFactory;
 import com.kshres31.inventory.controller.InventoryCli;
+import com.kshres31.inventory.migration.MigrationCommand;
+import com.kshres31.inventory.migration.MigrationRunner;
 import com.kshres31.inventory.notification.NotificationConfig;
 import com.kshres31.inventory.notification.NotificationDispatcher;
 import com.kshres31.inventory.notification.RetryPolicy;
@@ -19,6 +21,7 @@ import com.kshres31.inventory.service.PurchaseOrderService;
 import com.kshres31.inventory.service.ReportingService;
 import com.kshres31.inventory.service.UserService;
 
+import java.nio.file.Path;
 import java.time.Duration;
 
 public final class InventoryApplication {
@@ -28,6 +31,11 @@ public final class InventoryApplication {
     public static void main(String[] args) {
         try {
             var connections = new JdbcConnectionFactory(DatabaseConfig.fromEnvironment(System.getenv()));
+            if (MigrationCommand.handles(args)) {
+                Path directory = Path.of(System.getenv().getOrDefault("INVENTORY_MIGRATIONS_DIR", "database"));
+                new MigrationCommand(new MigrationRunner(connections, directory), System.out).run(args);
+                return;
+            }
             var users = new JdbcUserRepository(connections);
             var inventoryRepository = new JdbcInventoryRepository(connections);
             var products = new JdbcProductRepository(connections);
