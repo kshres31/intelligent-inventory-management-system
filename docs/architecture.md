@@ -23,6 +23,7 @@ flowchart LR
 - `controller`: command-line request handling and output formatting.
 - `exception`: domain-specific failures that callers can handle clearly.
 - `migration`: version-tracked runner that applies the numbered SQL files.
+- `security`: password hashing, login, lockout, and sessions.
 - `notification`: alert-notification dispatcher, retry policy, and delivery channels.
 - `database`: schema, stored functions, triggers, and seed data.
 
@@ -43,8 +44,8 @@ This division provides defense in depth. A service check gives a clear error to 
 | View inventory and history | Yes | Yes | Yes |
 | Resolve alerts | Yes | Yes | No |
 
-Application roles are intentionally separate from PostgreSQL login roles. The CLI connects with one database account and checks the selected demo actor's role in the service layer. The supplied Compose account owns the database; least-privilege grants and real authentication are still future work.
+Application roles are intentionally separate from PostgreSQL login roles. The CLI connects with one database account and checks the signed-in user's role in the service layer. The supplied Compose account owns the database; least-privilege grants are still future work.
 
 ## Scope choices
 
-The initial interface is a command-line application so effort stays focused on transactions, database behavior, and tests. Password authentication and a graphical interface are future work; seeded users identify demo actors, but the project does not claim production-grade identity management.
+The initial interface is a command-line application so effort stays focused on transactions, database behavior, and tests. Users sign in with passwords and server-side sessions (see [Authentication](authentication.md)); single sign-on, MFA and a graphical interface are out of scope.
