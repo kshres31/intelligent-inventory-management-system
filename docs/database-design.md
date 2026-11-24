@@ -67,6 +67,13 @@ Stores low-stock and discrepancy alerts. A partial unique index will prevent dup
 Low-stock evaluation uses `inventory.low_stock_threshold` when a location override is set and
 the product's `reorder_threshold` otherwise.
 
+### `user_credential` and `user_session`
+
+`user_credential` holds one PBKDF2 hash per user plus the consecutive-failure counter and lock
+expiry; a check constraint rejects anything that is not a `pbkdf2-sha256$` value. `user_session`
+stores the SHA-256 digest of each bearer token with expiry and revocation times, and a partial index
+on active sessions per user serves "sign out everywhere" after a password change.
+
 ### `schema_migration`
 
 Written only by the migration runner. One row per applied file: version, description, SHA-256

@@ -124,7 +124,9 @@ The functions contain short sequences where locking and all-or-nothing behavior 
 | Configure thresholds and dispatch notifications | Yes | Yes | No |
 | Manage products and users | Yes | No | No |
 
-The CLI accepts a seeded username to identify the actor for a demo command. This demonstrates authorization and audit propagation, but it is not authentication. A production system would add password or identity-provider login and server-managed sessions.
+Users sign in with a password. Passwords are stored only as salted PBKDF2-HMAC-SHA256 hashes (600,000 iterations); five consecutive failures lock the account for 15 minutes; each login creates a server-side session whose token is kept by the client and stored in the database only as a SHA-256 digest. Every command resolves its actor from that session, so roles and audit entries reflect who actually signed in. See [Authentication](docs/authentication.md).
+
+For quick demos, `INVENTORY_DEMO_MODE=true` restores the older form where the first argument names the acting seeded user without a password. Never enable it outside a local demo.
 
 ## Project structure
 
@@ -213,6 +215,28 @@ mvn -q compile exec:java "-Dexec.args=migrate"
 `down -v` permanently removes this Compose project's local database volume, so do not use it when the data matters.
 
 ## Run the application
+
+### Sign in
+
+A fresh database has users but no passwords. Give the first administrator a password once, then sign in. Passwords are read without echo from the terminal (or one line per prompt from piped standard input), never from arguments:
+
+```powershell
+mvn -q exec:java "-Dexec.args=bootstrap-admin admin.demo"
+mvn -q exec:java "-Dexec.args=login admin.demo"
+mvn -q exec:java "-Dexec.args=whoami"
+mvn -q exec:java "-Dexec.args=set-password manager.demo"   # admins can set anyone's password
+mvn -q exec:java "-Dexec.args=logout"
+```
+
+`login` saves the session token to `~/.inventory/session` (owner-only permissions; override with `INVENTORY_SESSION_FILE`, or pass a token in `INVENTORY_SESSION_TOKEN`). Signed in, commands drop the username: `mvn exec:java -Dexec.args="low-stock"`.
+
+### Demo commands
+
+The examples below use demo mode so several roles can be shown quickly without switching sessions:
+
+```powershell
+$env:INVENTORY_DEMO_MODE = 'true'
+```
 
 Show help:
 
@@ -322,6 +346,8 @@ The suite covers:
 - stable, bounded transaction-history pagination.
 - partial and complete purchase-order receiving, duplicate delivery requests, forced contention,
   cancellation, and rollback after stock, audit, alert, and order writes.
+- authentication: PBKDF2 hashing, lockout, indistinguishable failures, session expiry and
+  revocation, concurrent bootstrap, password-change authorization and audit;
 - migration runner: one-time application, rollback of a failing file, checksum and
   out-of-order protection, baseline adoption, and three concurrent runners;
 - alert notification lifecycle, rollback, threshold overrides, retries, dead-lettering,
@@ -335,7 +361,9 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 - Secrets come from environment variables, and `.env` is ignored.
 - PostgreSQL constraints defend critical invariants if Java validation is bypassed.
 - The demo stores no customer data and collects no analytics.
-- The actor selector is not authentication; do not expose this prototype directly to the internet.
+- Passwords are PBKDF2-hashed with per-user salts; session tokens are stored only as SHA-256 digests; login failures never reveal whether a username exists.
+- Demo mode (`INVENTORY_DEMO_MODE=true`) bypasses passwords by design; keep it off outside local demos.
+- This is a CLI, not a network service; do not expose the database to the internet.
 - A production database account should receive only the required table/function privileges instead of broad schema ownership.
 
 ## Lessons learned
@@ -349,7 +377,7 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 
 ## Limitations and future improvements
 
-- Add real authentication and securely hashed credentials.
+- Add an HTTP API over the existing services, reusing the session tokens.
 - Add email or chat channels; the webhook channel can already feed a relay service.
 - Add receipt browsing and supplier shipment identifiers.
 - Add barcode scanning and a web interface without moving business rules into UI code.
