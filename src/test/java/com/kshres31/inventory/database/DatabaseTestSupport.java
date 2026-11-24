@@ -20,7 +20,8 @@ public final class DatabaseTestSupport implements AutoCloseable {
             Path.of("database", "002_functions.sql"),
             Path.of("database", "003_triggers.sql"),
             Path.of("database", "004_seed.sql"),
-            Path.of("database", "005_purchase_order_receipts.sql")
+            Path.of("database", "005_purchase_order_receipts.sql"),
+            Path.of("database", "006_alert_notifications.sql")
     );
 
     private final EmbeddedPostgres postgres;

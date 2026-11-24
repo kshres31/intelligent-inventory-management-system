@@ -11,7 +11,8 @@ I built this as a student portfolio project around the parts of inventory softwa
 - Receives, sells, transfers, and manually adjusts stock.
 - Records physical counts without silently changing system quantity.
 - Prevents negative inventory and lost updates.
-- Creates and resolves low-stock and discrepancy alerts.
+- Creates and resolves low-stock and discrepancy alerts, with per-location threshold overrides.
+- Delivers alert notifications through a transactional outbox to a webhook (HMAC-signed) or the console, with retries, backoff, and dead-lettering.
 - Keeps stock-transaction and inventory-audit histories.
 - Creates purchase orders, adds draft lines, and guards status transitions.
 - Receives purchase-order lines atomically with stock, audit entries and alerts; repeated request UUIDs return the original result without receiving twice.
@@ -64,7 +65,7 @@ Core tables:
 - `stock_transaction`
 - `purchase_order` and `purchase_order_line`
 - `inventory_count`
-- `inventory_alert`
+- `inventory_alert` and `alert_notification`
 - `audit_log`
 
 Products and users are deactivated rather than deleted so historical foreign keys remain meaningful.
@@ -96,6 +97,8 @@ The concurrency integration test starts with 10 units and releases two real data
 - `trg_inventory_audit` stores old quantity, new quantity, change, time, and application actor after a real quantity update.
 - `trg_low_stock_alert` creates or refreshes one unresolved low-stock alert per product/location and resolves it after recovery.
 - `trg_discrepancy_alert` compares a physical count with the expected quantity and raises an alert when the configured threshold is exceeded.
+- `trg_alert_notification` queues a notification in the same transaction when an alert is raised, escalated to critical, or resolved. See [Alert notifications](docs/alert-notifications.md).
+- `trg_product_threshold_reevaluation` re-checks locations when a product's default threshold changes.
 
 ### Transaction functions
 
@@ -104,6 +107,7 @@ The concurrency integration test starts with 10 units and releases two real data
 - `transfer_inventory`
 - `perform_inventory_adjustment`
 - `reconcile_inventory_count`
+- `set_low_stock_threshold`
 
 The functions contain short sequences where locking and all-or-nothing behavior matter. Search and reporting remain ordinary SQL in repositories because moving every query into a stored function would add complexity without improving consistency.
 
@@ -117,6 +121,7 @@ The functions contain short sequences where locking and all-or-nothing behavior 
 | Record physical counts | Yes | Yes | No |
 | Manage purchase orders | Yes | Yes | No |
 | Resolve alerts | Yes | Yes | No |
+| Configure thresholds and dispatch notifications | Yes | Yes | No |
 | Manage products and users | Yes | No | No |
 
 The CLI accepts a seeded username to identify the actor for a demo command. This demonstrates authorization and audit propagation, but it is not authentication. A production system would add password or identity-provider login and server-managed sessions.
@@ -186,6 +191,8 @@ $env:INVENTORY_DB_USER = 'inventory_app'
 $env:INVENTORY_DB_PASSWORD = 'local_inventory_password'
 ```
 
+Optional alert delivery settings are `INVENTORY_ALERT_WEBHOOK_URL`, `INVENTORY_ALERT_WEBHOOK_SECRET`, and `INVENTORY_ALERT_WEBHOOK_TIMEOUT_SECONDS`. Without a webhook URL, notifications print to the console.
+
 `.env` is ignored by Git. Do not commit real passwords.
 
 ## Run the application
@@ -217,6 +224,15 @@ mvn exec:java -Dexec.args="manager.demo transfer 1 1 2 4 MOVE-DEMO-001"
 mvn exec:java -Dexec.args="manager.demo count 1 1 20 Cycle count"
 mvn exec:java -Dexec.args="manager.demo alerts"
 mvn exec:java -Dexec.args="manager.demo discrepancies 20"
+```
+
+Alert thresholds and notifications:
+
+```powershell
+mvn exec:java -Dexec.args="manager.demo set-threshold 1 1 30"
+mvn exec:java -Dexec.args="manager.demo notifications pending"
+mvn exec:java -Dexec.args="manager.demo dispatch-notifications"
+mvn exec:java -Dexec.args="manager.demo notification-worker 15"
 ```
 
 Administrator workflows:
@@ -289,6 +305,8 @@ The suite covers:
 - stable, bounded transaction-history pagination.
 - partial and complete purchase-order receiving, duplicate delivery requests, forced contention,
   cancellation, and rollback after stock, audit, alert, and order writes.
+- alert notification lifecycle, rollback, threshold overrides, retries, dead-lettering,
+  concurrent dispatchers, stale leases, and signed webhook delivery.
 
 GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes and pull requests.
 
@@ -314,6 +332,7 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 
 - Add real authentication and securely hashed credentials.
 - Introduce database migration version tracking for upgrades to existing installations.
+- Add email or chat channels; the webhook channel can already feed a relay service.
 - Add receipt browsing and supplier shipment identifiers.
 - Add barcode scanning and a web interface without moving business rules into UI code.
 - Add configurable per-role permissions and least-privilege PostgreSQL grants.

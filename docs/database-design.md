@@ -64,6 +64,16 @@ order. See [receiving design](purchase-order-receipts.md) for guarantees and upg
 
 Stores low-stock and discrepancy alerts. A partial unique index will prevent duplicate unresolved low-stock alerts for the same product and warehouse.
 
+Low-stock evaluation uses `inventory.low_stock_threshold` when a location override is set and
+the product's `reorder_threshold` otherwise.
+
+### `alert_notification`
+
+A transactional outbox of alert events (`RAISED`, `ESCALATED`, `RESOLVED`) written by a trigger in
+the same transaction as the alert change. Dispatchers lease rows with `FOR UPDATE SKIP LOCKED` and
+a `claim_token`; a partial index on `(next_attempt_at, id) WHERE status = 'PENDING'` keeps the
+claim query to undelivered rows. See [Alert notifications](alert-notifications.md).
+
 ### `inventory_count`
 
 Captures the expected quantity at count time and the independently observed physical quantity. Keeping both values makes discrepancies reproducible after inventory changes later.
@@ -79,6 +89,7 @@ Stores old and new row snapshots as `jsonb`, the responsible application user wh
 - Time-descending indexes support recent transaction, alert, and audit reports.
 - Product and warehouse foreign-key indexes support history filtering.
 - A partial unique index enforces one unresolved low-stock alert.
+- A partial index on pending notifications serves the dispatcher's due-order claim query.
 
 Indexes are added for demonstrated query patterns rather than every column; extra indexes slow down writes and consume storage.
 

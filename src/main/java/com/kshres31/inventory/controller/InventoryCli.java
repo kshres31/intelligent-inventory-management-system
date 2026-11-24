@@ -2,10 +2,13 @@ package com.kshres31.inventory.controller;
 
 import com.kshres31.inventory.model.AppUser;
 import com.kshres31.inventory.model.AppUserDraft;
+import com.kshres31.inventory.model.DispatchSummary;
+import com.kshres31.inventory.model.NotificationStatus;
 import com.kshres31.inventory.model.ProductDraft;
 import com.kshres31.inventory.model.PurchaseOrderStatus;
 import com.kshres31.inventory.model.Role;
 import com.kshres31.inventory.repository.UserRepository;
+import com.kshres31.inventory.service.AlertNotificationService;
 import com.kshres31.inventory.service.InventoryService;
 import com.kshres31.inventory.service.ProductService;
 import com.kshres31.inventory.service.PurchaseOrderService;
@@ -25,17 +28,19 @@ public final class InventoryCli {
     private final ProductService products;
     private final PurchaseOrderService purchaseOrders;
     private final UserService userService;
+    private final AlertNotificationService notifications;
     private final PrintStream out;
 
     public InventoryCli(UserRepository users, InventoryService inventory, ReportingService reporting,
                         ProductService products, PurchaseOrderService purchaseOrders,
-                        UserService userService, PrintStream out) {
+                        UserService userService, AlertNotificationService notifications, PrintStream out) {
         this.users = users;
         this.inventory = inventory;
         this.reporting = reporting;
         this.products = products;
         this.purchaseOrders = purchaseOrders;
         this.userService = userService;
+        this.notifications = notifications;
         this.out = out;
     }
 
@@ -60,6 +65,11 @@ public final class InventoryCli {
             case "transactions" -> showTransactions(actor, args);
             case "alerts" -> showAlerts(actor, args);
             case "resolve-alert" -> resolveAlert(actor, args);
+            case "set-threshold" -> setThreshold(actor, args);
+            case "notifications" -> showNotifications(actor, args);
+            case "dispatch-notifications" -> dispatchNotifications(actor, args);
+            case "notification-worker" -> runNotificationWorker(actor, args);
+            case "requeue-notification" -> requeueNotification(actor, args);
             case "most-moved" -> showMostMoved(actor, args);
             case "discrepancies" -> showDiscrepancies(actor, args);
             case "audit" -> showAudit(actor, args);
@@ -162,6 +172,66 @@ public final class InventoryCli {
         requireArgs(args, 4);
         out.println(reporting.resolveAlert(actor, longArg(args, 2), joinFrom(args, 3))
                 ? "Alert resolved." : "Alert was already resolved or does not exist.");
+    }
+
+    private void setThreshold(AppUser actor, String[] args) {
+        requireArgs(args, 5);
+        Integer threshold = "default".equalsIgnoreCase(args[4]) ? null : intArg(args, 4);
+        int effective = inventory.setLowStockThreshold(actor, longArg(args, 2), longArg(args, 3), threshold);
+        out.println(threshold == null
+                ? "Location override cleared. Effective threshold (product default): " + effective
+                : "Location threshold set. Effective threshold: " + effective);
+    }
+
+    private void showNotifications(AppUser actor, String[] args) {
+        String filter = args.length > 2 ? args[2].toUpperCase() : "ALL";
+        NotificationStatus status = "ALL".equals(filter) ? null : NotificationStatus.valueOf(filter);
+        int limit = args.length > 3 ? intArg(args, 3) : 20;
+        notifications.recent(actor, limit, status).forEach(n -> out.printf(
+                "%d | alert=%d | %s | %s | attempts=%d | next=%s | error=%s%n",
+                n.id(), n.alertId(), n.eventType(), n.status(), n.attempts(), n.nextAttemptAt(),
+                n.lastError() == null ? "-" : n.lastError()
+        ));
+    }
+
+    private void dispatchNotifications(AppUser actor, String[] args) {
+        int batchSize = args.length > 2 ? intArg(args, 2) : 50;
+        printSummary(notifications.dispatch(actor, batchSize));
+    }
+
+    private void runNotificationWorker(AppUser actor, String[] args) {
+        int intervalSeconds = args.length > 2 ? intArg(args, 2) : 15;
+        int batchSize = args.length > 3 ? intArg(args, 3) : 50;
+        if (intervalSeconds < 1) {
+            throw new IllegalArgumentException("Worker interval must be at least 1 second");
+        }
+        out.printf("Notification worker started (channel: %s, every %ds). Press Ctrl+C to stop.%n",
+                notifications.channelDescription(), intervalSeconds);
+        while (!Thread.currentThread().isInterrupted()) {
+            DispatchSummary summary;
+            do {
+                summary = notifications.dispatch(actor, batchSize);
+                if (summary.claimed() > 0) {
+                    printSummary(summary);
+                }
+            } while (summary.claimed() == batchSize);
+            try {
+                Thread.sleep(intervalSeconds * 1000L);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private void printSummary(DispatchSummary summary) {
+        out.printf("Notifications claimed=%d sent=%d retried=%d dead=%d lost-lease=%d%n",
+                summary.claimed(), summary.sent(), summary.retried(), summary.dead(), summary.lost());
+    }
+
+    private void requeueNotification(AppUser actor, String[] args) {
+        requireArgs(args, 3);
+        out.println(notifications.requeue(actor, longArg(args, 2))
+                ? "Notification requeued." : "Only DEAD notifications can be requeued.");
     }
 
     private void showMostMoved(AppUser actor, String[] args) {
@@ -326,5 +396,8 @@ public final class InventoryCli {
         out.println("        receive-order-line <orderId> <productId> <quantity> <requestUUID> (reuse UUID for retries)");
         out.println("        order-status <orderId> <current> <next>");
         out.println("Alerts: resolve-alert <alertId> <resolution note>");
+        out.println("        set-threshold <productId> <warehouseId> <threshold|default>");
+        out.println("        notifications [pending|sent|dead|all] [limit], requeue-notification <id>");
+        out.println("        dispatch-notifications [batchSize], notification-worker [intervalSeconds] [batchSize]");
     }
 }
