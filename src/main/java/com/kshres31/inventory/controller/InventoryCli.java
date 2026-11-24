@@ -404,6 +404,7 @@ public final class InventoryCli {
         out.println("       (demo mode, INVENTORY_DEMO_MODE=true: <username> <command> [arguments])");
         out.println("Session: login <username>, logout, whoami, set-password <username>, bootstrap-admin <username>");
         out.println("Database: migrate, migration-status, baseline <version>");
+        out.println("API: serve (INVENTORY_API_HOST, default 127.0.0.1; INVENTORY_API_PORT, default 8080)");
         out.println("Read: inventory [query], low-stock, transactions <productId> [page] [pageSize], alerts [all]");
         out.println("Reports: most-moved [limit], discrepancies [limit], audit [limit]");
         out.println("Stock: receive|sell <productId> <warehouseId> <quantity> [reference]");

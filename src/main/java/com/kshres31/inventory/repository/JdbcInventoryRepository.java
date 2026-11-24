@@ -236,7 +236,10 @@ public final class JdbcInventoryRepository implements InventoryRepository {
 
     private RuntimeException translateOperationFailure(String operation, SQLException error) {
         if ("P0001".equals(error.getSQLState()) || "23514".equals(error.getSQLState())) {
-            return new InventoryOperationException(error.getMessage(), error);
+            return new InventoryOperationException(SqlErrors.businessMessage(error), error);
+        }
+        if ("23503".equals(error.getSQLState())) {
+            return new InventoryOperationException("Product, warehouse or user does not exist", error);
         }
         return new DataAccessException("Could not " + operation, error);
     }
