@@ -7,6 +7,7 @@ The application separates command-line interaction, business permissions, JDBC a
 ```mermaid
 flowchart LR
     CLI[Command-line interface] --> Service[Service layer]
+    API[HTTP JSON API] --> Service
     Service --> Repo[Repositories]
     Repo --> JDBC[JDBC / connection factory]
     JDBC --> PG[(PostgreSQL)]
@@ -21,6 +22,7 @@ flowchart LR
 - `repository`: parameterized SQL for queries and ordinary CRUD operations.
 - `service`: permission checks and use-case coordination.
 - `controller`: command-line request handling and output formatting.
+- `api`: HTTP routing, JSON and error mapping over the same services (see [HTTP API](api.md)).
 - `exception`: domain-specific failures that callers can handle clearly.
 - `migration`: version-tracked runner that applies the numbered SQL files.
 - `security`: password hashing, login, lockout, and sessions.

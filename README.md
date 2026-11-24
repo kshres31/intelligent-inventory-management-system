@@ -17,6 +17,8 @@ I built this as a student portfolio project around the parts of inventory softwa
 - Creates purchase orders, adds draft lines, and guards status transitions.
 - Receives purchase-order lines atomically with stock, audit entries and alerts; repeated request UUIDs return the original result without receiving twice.
 - Reports current inventory, low stock, recent movements, discrepancies, alerts, and audits.
+- Requires password login; commands and API calls act as the signed-in user.
+- Exposes inventory, stock movements, thresholds, alerts and notifications as a JSON HTTP API.
 
 ## Technology
 
@@ -33,6 +35,7 @@ I built this as a student portfolio project around the parts of inventory softwa
 ```mermaid
 flowchart LR
     CLI[Inventory CLI] --> Services[Service layer]
+    API[HTTP JSON API] --> Services
     Services --> Repositories[JDBC repositories]
     Repositories --> Functions[PostgreSQL functions]
     Repositories --> Queries[Report and CRUD queries]
@@ -43,6 +46,7 @@ flowchart LR
 The responsibilities are deliberately separated:
 
 - `controller` parses commands and formats output.
+- `api` maps HTTP requests to the same services and domain errors to status codes.
 - `service` validates input and checks application permissions.
 - `repository` owns parameterized SQL and JDBC transaction boundaries.
 - `model` contains domain records and enums.
@@ -286,6 +290,14 @@ mvn exec:java -Dexec.args="admin.demo users all"
 
 Run `mvn exec:java -Dexec.args="help"` for every supported command and argument shape. Numeric IDs are shown by the inventory, product, user, and purchase-order list commands.
 
+## HTTP API
+
+```powershell
+mvn -q compile exec:java "-Dexec.args=serve"   # http://127.0.0.1:8080/api/v1
+```
+
+Sign in with `POST /api/v1/sessions`, then send `Authorization: Bearer <token>`. Endpoints, error codes and security notes are in [HTTP API](docs/api.md).
+
 ## Tests
 
 ### Receive a purchase order
@@ -346,6 +358,8 @@ The suite covers:
 - stable, bounded transaction-history pagination.
 - partial and complete purchase-order receiving, duplicate delivery requests, forced contention,
   cancellation, and rollback after stock, audit, alert, and order writes.
+- HTTP API: status codes for every error class, role enforcement, log hygiene, and
+  12 concurrent HTTP sales that cannot oversell;
 - authentication: PBKDF2 hashing, lockout, indistinguishable failures, session expiry and
   revocation, concurrent bootstrap, password-change authorization and audit;
 - migration runner: one-time application, rollback of a failing file, checksum and
@@ -377,7 +391,7 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 
 ## Limitations and future improvements
 
-- Add an HTTP API over the existing services, reusing the session tokens.
+- Add TLS termination and per-address rate limiting in front of the API before exposing it on a network.
 - Add email or chat channels; the webhook channel can already feed a relay service.
 - Add receipt browsing and supplier shipment identifiers.
 - Add barcode scanning and a web interface without moving business rules into UI code.

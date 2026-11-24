@@ -1,5 +1,7 @@
 package com.kshres31.inventory;
 
+import com.kshres31.inventory.api.ApiServer;
+import com.kshres31.inventory.api.InventoryApi;
 import com.kshres31.inventory.config.DatabaseConfig;
 import com.kshres31.inventory.config.JdbcConnectionFactory;
 import com.kshres31.inventory.controller.AuthCommand;
@@ -28,7 +30,10 @@ import com.kshres31.inventory.service.PurchaseOrderService;
 import com.kshres31.inventory.service.ReportingService;
 import com.kshres31.inventory.service.UserService;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.Map;
 import java.time.Duration;
 
 public final class InventoryApplication {
@@ -45,9 +50,10 @@ public final class InventoryApplication {
             }
             var users = new JdbcUserRepository(connections);
             var environment = System.getenv();
+            var authentication = new AuthenticationService(users, new JdbcCredentialRepository(connections),
+                    new PasswordHasher(PasswordHasher.DEFAULT_ITERATIONS), AuthPolicy.defaults());
             var auth = new AuthCommand(
-                    new AuthenticationService(users, new JdbcCredentialRepository(connections),
-                            new PasswordHasher(PasswordHasher.DEFAULT_ITERATIONS), AuthPolicy.defaults()),
+                    authentication,
                     SessionStore.fromEnvironment(environment),
                     () -> environment.get("INVENTORY_SESSION_TOKEN"),
                     new ConsolePasswordPrompt(),
@@ -69,14 +75,24 @@ public final class InventoryApplication {
                     Duration.ofMinutes(2)
             );
 
+            var inventoryService = new InventoryService(inventoryRepository);
+            var reportingService = new ReportingService(inventoryRepository, reports);
+            var notificationService = new AlertNotificationService(notificationRepository, dispatcher);
+
+            if (args.length > 0 && "serve".equalsIgnoreCase(args[0])) {
+                serve(environment, new InventoryApi(authentication, inventoryService, reportingService,
+                        notificationService, connections));
+                return;
+            }
+
             var cli = new InventoryCli(
                     users,
-                    new InventoryService(inventoryRepository),
-                    new ReportingService(inventoryRepository, reports),
+                    inventoryService,
+                    reportingService,
                     new ProductService(products),
                     new PurchaseOrderService(orders),
                     new UserService(users),
-                    new AlertNotificationService(notificationRepository, dispatcher),
+                    notificationService,
                     System.out
             );
             if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
@@ -87,9 +103,22 @@ public final class InventoryApplication {
             } else {
                 cli.runAs(auth.currentUser(), args);
             }
-        } catch (RuntimeException error) {
+        } catch (RuntimeException | IOException error) {
             System.err.println("Error: " + error.getMessage());
             System.exit(1);
         }
+    }
+
+    private static void serve(Map<String, String> environment, InventoryApi api) throws IOException {
+        String host = environment.getOrDefault("INVENTORY_API_HOST", "127.0.0.1");
+        int port;
+        try {
+            port = Integer.parseInt(environment.getOrDefault("INVENTORY_API_PORT", "8080"));
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException("INVENTORY_API_PORT must be a number");
+        }
+        var server = ApiServer.start(new InetSocketAddress(host, port), api, 16, System.err::println);
+        Runtime.getRuntime().addShutdownHook(new Thread(server::close));
+        System.out.printf("Inventory API listening on http://%s:%d/api/v1 (Ctrl+C to stop)%n", host, server.port());
     }
 }
