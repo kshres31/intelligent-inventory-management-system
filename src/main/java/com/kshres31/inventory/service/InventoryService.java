@@ -62,6 +62,14 @@ public final class InventoryService {
         return inventory.recordPhysicalCount(productId, warehouseId, countedQuantity, actor.id(), notes);
     }
 
+    public int setLowStockThreshold(AppUser actor, long productId, long warehouseId, Integer threshold) {
+        requirePermission(actor, Permission.CONFIGURE_ALERTS);
+        if (threshold != null && threshold < 0) {
+            throw new IllegalArgumentException("Low-stock threshold cannot be negative");
+        }
+        return inventory.setLowStockThreshold(productId, warehouseId, threshold, actor.id());
+    }
+
     public List<InventoryItem> search(AppUser actor, String query, boolean lowStockOnly) {
         requirePermission(actor, Permission.VIEW_INVENTORY);
         return inventory.search(query, lowStockOnly);

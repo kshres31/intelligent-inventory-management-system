@@ -63,7 +63,7 @@ class PurchaseOrderReceiptIntegrationTest {
     void cliReceivesAndReplaysDeliveryWhileRejectingEmployee() throws Exception {
         var output = new ByteArrayOutputStream();
         var users = new JdbcUserRepository(() -> database.dataSource().getConnection());
-        var cli = new InventoryCli(users, null, null, null, new PurchaseOrderService(orders), null,
+        var cli = new InventoryCli(users, null, null, null, new PurchaseOrderService(orders), null, null,
                 new PrintStream(output));
         String[] command = {"manager.demo", "receive-order-line", Long.toString(orderId),
                 Long.toString(productId), "4", UUID.randomUUID().toString()};

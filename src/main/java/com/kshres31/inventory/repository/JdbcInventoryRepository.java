@@ -85,6 +85,22 @@ public final class JdbcInventoryRepository implements InventoryRepository {
     }
 
     @Override
+    public int setLowStockThreshold(long productId, long warehouseId, Integer threshold, long actorUserId) {
+        return inTransaction("set low-stock threshold", connection -> {
+            try (var statement = connection.prepareStatement("SELECT set_low_stock_threshold(?, ?, ?, ?)")) {
+                statement.setLong(1, productId);
+                statement.setLong(2, warehouseId);
+                statement.setObject(3, threshold, java.sql.Types.INTEGER);
+                statement.setLong(4, actorUserId);
+                try (var result = statement.executeQuery()) {
+                    result.next();
+                    return result.getInt(1);
+                }
+            }
+        });
+    }
+
+    @Override
     public int currentQuantity(long productId, long warehouseId) {
         String sql = "SELECT quantity FROM inventory WHERE product_id = ? AND warehouse_id = ?";
         try (var connection = connections.open();
@@ -107,13 +123,14 @@ public final class JdbcInventoryRepository implements InventoryRepository {
         String sql = """
                 SELECT p.id AS product_id, p.sku, p.name AS product_name,
                        w.id AS warehouse_id, w.code AS warehouse_code, w.name AS warehouse_name,
-                       i.quantity, p.reorder_threshold, i.updated_at
+                       i.quantity, COALESCE(i.low_stock_threshold, p.reorder_threshold) AS reorder_threshold,
+                       i.updated_at
                 FROM inventory i
                 JOIN product p ON p.id = i.product_id
                 JOIN warehouse w ON w.id = i.warehouse_id
                 WHERE p.active AND w.active
                   AND (? = '' OR p.sku ILIKE '%%' || ? || '%%' OR p.name ILIKE '%%' || ? || '%%')
-                  AND (NOT ? OR i.quantity < p.reorder_threshold)
+                  AND (NOT ? OR i.quantity < COALESCE(i.low_stock_threshold, p.reorder_threshold))
                 ORDER BY p.name, w.code
                 """;
         String searchTerm = query == null ? "" : query.strip();

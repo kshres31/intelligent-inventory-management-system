@@ -21,6 +21,12 @@ public interface InventoryRepository {
 
     int currentQuantity(long productId, long warehouseId);
 
+    /**
+     * Sets a per-location low-stock threshold, or clears it when {@code threshold} is null so
+     * the product default applies. Returns the effective threshold after the change.
+     */
+    int setLowStockThreshold(long productId, long warehouseId, Integer threshold, long actorUserId);
+
     List<InventoryItem> search(String query, boolean lowStockOnly);
 
     List<StockTransaction> transactionHistory(long productId, int limit, int offset);
