@@ -129,12 +129,11 @@ Example payload:
 
 ## Upgrade an existing database
 
-Fresh Compose volumes apply `006_alert_notifications.sql` automatically. For an existing
-volume, back it up and apply the additive migration once while the application is stopped:
+Back up the database, then run the version-tracked runner, which applies
+`006_alert_notifications.sql` once and records it:
 
 ```powershell
-Get-Content -Raw database/006_alert_notifications.sql |
-    docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U inventory_app -d inventory
+mvn -q compile exec:java "-Dexec.args=migrate"
 ```
 
 The migration adds one nullable column, one table and its triggers, and queues one `RAISED`

@@ -129,7 +129,7 @@ The CLI accepts a seeded username to identify the actor for a demo command. This
 ## Project structure
 
 ```text
-database/                         schema, functions, triggers, seed data
+database/                         numbered migrations: schema, functions, triggers, seed data
 docs/                             architecture and concurrency notes
 src/main/java/.../config/         database configuration and connections
 src/main/java/.../controller/     CLI argument handling
@@ -170,17 +170,6 @@ docker compose up -d
 docker compose ps
 ```
 
-The first startup runs the numbered SQL files in `database/` and loads a small demo dataset. PostgreSQL initialization scripts only run for a new data volume.
-
-To deliberately discard the local database and rebuild it from the SQL files:
-
-```powershell
-docker compose down -v
-docker compose up -d
-```
-
-`down -v` permanently removes this Compose project's local database volume, so do not use it when the data matters.
-
 ### Configure the application
 
 Copy `.env.example` to `.env` for Docker Compose. The Java process reads environment variables directly:
@@ -194,6 +183,34 @@ $env:INVENTORY_DB_PASSWORD = 'local_inventory_password'
 Optional alert delivery settings are `INVENTORY_ALERT_WEBHOOK_URL`, `INVENTORY_ALERT_WEBHOOK_SECRET`, and `INVENTORY_ALERT_WEBHOOK_TIMEOUT_SECONDS`. Without a webhook URL, notifications print to the console.
 
 `.env` is ignored by Git. Do not commit real passwords.
+
+### Apply migrations
+
+Schema changes live in numbered files in `database/` (`001_schema.sql`, `002_functions.sql`, ...). With PostgreSQL running and the variables above set, apply them with the version-tracked runner:
+
+```powershell
+mvn -q compile exec:java "-Dexec.args=migrate"
+mvn -q exec:java "-Dexec.args=migration-status"
+```
+
+`migrate` records every applied file, its SHA-256 checksum, and duration in `schema_migration`. It is safe to run on every deploy: already-applied files are skipped, each new file runs in its own transaction with its version record, a PostgreSQL advisory lock serializes concurrent runners, and edited or out-of-order files are refused. `004_seed.sql` loads a small demo dataset.
+
+A volume created by an older version of this project (when Compose ran the SQL files as init scripts) already has the schema but no history. Record what it already contains once, then migrate normally:
+
+```powershell
+mvn -q exec:java "-Dexec.args=baseline 4"   # newest file that volume already has (4, 5 or 6)
+mvn -q exec:java "-Dexec.args=migrate"
+```
+
+To deliberately discard the local database and rebuild it:
+
+```powershell
+docker compose down -v
+docker compose up -d
+mvn -q compile exec:java "-Dexec.args=migrate"
+```
+
+`down -v` permanently removes this Compose project's local database volume, so do not use it when the data matters.
 
 ## Run the application
 
@@ -305,6 +322,8 @@ The suite covers:
 - stable, bounded transaction-history pagination.
 - partial and complete purchase-order receiving, duplicate delivery requests, forced contention,
   cancellation, and rollback after stock, audit, alert, and order writes.
+- migration runner: one-time application, rollback of a failing file, checksum and
+  out-of-order protection, baseline adoption, and three concurrent runners;
 - alert notification lifecycle, rollback, threshold overrides, retries, dead-lettering,
   concurrent dispatchers, stale leases, and signed webhook delivery.
 
@@ -331,7 +350,6 @@ GitHub Actions runs the suite against a clean PostgreSQL 16 service on pushes an
 ## Limitations and future improvements
 
 - Add real authentication and securely hashed credentials.
-- Introduce database migration version tracking for upgrades to existing installations.
 - Add email or chat channels; the webhook channel can already feed a relay service.
 - Add receipt browsing and supplier shipment identifiers.
 - Add barcode scanning and a web interface without moving business rules into UI code.

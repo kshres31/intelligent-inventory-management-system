@@ -14,7 +14,6 @@ services:
       retries: 15
     volumes:
       - inventory_postgres_data:/var/lib/postgresql/data
-      - ./database:/docker-entrypoint-initdb.d:ro
 
 volumes:
   inventory_postgres_data:
