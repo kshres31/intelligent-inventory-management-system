@@ -66,6 +66,20 @@ class InventoryServiceTest {
                 () -> service.transactionHistory(employee, 42, 1, 101));
     }
 
+    @Test
+    void onlyAlertConfiguratorsCanChangeThresholds() {
+        var employee = user(Role.EMPLOYEE, true);
+        var manager = user(Role.MANAGER, true);
+
+        assertThrows(AuthorizationException.class,
+                () -> service.setLowStockThreshold(employee, 1, 1, 3));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.setLowStockThreshold(manager, 1, 1, -1));
+        assertEquals(0, repository.callCount);
+        assertEquals(8, service.setLowStockThreshold(manager, 1, 1, 8));
+        assertEquals(5, service.setLowStockThreshold(manager, 1, 1, null));
+    }
+
     private AppUser user(Role role, boolean active) {
         return new AppUser(10, "test", "Test User", null, role, active);
     }
@@ -110,6 +124,12 @@ class InventoryServiceTest {
         @Override
         public int currentQuantity(long productId, long warehouseId) {
             return 10;
+        }
+
+        @Override
+        public int setLowStockThreshold(long productId, long warehouseId, Integer threshold, long actorUserId) {
+            callCount++;
+            return threshold == null ? 5 : threshold;
         }
 
         @Override

@@ -10,7 +10,8 @@ public enum Role {
             Permission.RECORD_STOCK_MOVEMENT,
             Permission.ADJUST_INVENTORY,
             Permission.MANAGE_PURCHASE_ORDERS,
-            Permission.RESOLVE_ALERTS
+            Permission.RESOLVE_ALERTS,
+            Permission.CONFIGURE_ALERTS
     )),
     EMPLOYEE(EnumSet.of(
             Permission.VIEW_INVENTORY,
