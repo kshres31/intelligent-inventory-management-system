@@ -52,6 +52,25 @@ public final class InventoryCli {
         requireArgs(args, 2);
         AppUser actor = users.findByUsername(args[0])
                 .orElseThrow(() -> new IllegalArgumentException("Unknown user: " + args[0]));
+        dispatch(actor, args);
+    }
+
+    /**
+     * Runs {@code command [arguments]} as an already authenticated user, for example one resolved
+     * from a login session.
+     */
+    public void runAs(AppUser actor, String[] commandArgs) {
+        if (commandArgs.length == 0 || "help".equalsIgnoreCase(commandArgs[0])) {
+            printHelp();
+            return;
+        }
+        String[] args = new String[commandArgs.length + 1];
+        args[0] = actor.username();
+        System.arraycopy(commandArgs, 0, args, 1, commandArgs.length);
+        dispatch(actor, args);
+    }
+
+    private void dispatch(AppUser actor, String[] args) {
         String command = args[1].toLowerCase();
 
         switch (command) {
@@ -381,8 +400,10 @@ public final class InventoryCli {
     }
 
     private void printHelp() {
-        out.println("Usage: <username> <command> [arguments]");
-        out.println("Database: migrate, migration-status, baseline <version> (no username)");
+        out.println("Usage: <command> [arguments] after 'login <username>'");
+        out.println("       (demo mode, INVENTORY_DEMO_MODE=true: <username> <command> [arguments])");
+        out.println("Session: login <username>, logout, whoami, set-password <username>, bootstrap-admin <username>");
+        out.println("Database: migrate, migration-status, baseline <version>");
         out.println("Read: inventory [query], low-stock, transactions <productId> [page] [pageSize], alerts [all]");
         out.println("Reports: most-moved [limit], discrepancies [limit], audit [limit]");
         out.println("Stock: receive|sell <productId> <warehouseId> <quantity> [reference]");
