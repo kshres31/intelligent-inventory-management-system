@@ -10,6 +10,7 @@ import com.kshres31.inventory.repository.PurchaseOrderRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 public final class PurchaseOrderService {
     private final PurchaseOrderRepository orders;
@@ -39,10 +40,18 @@ public final class PurchaseOrderService {
         return orders.addLine(purchaseOrderId, productId, orderedQuantity, unitCost);
     }
 
+    public int receiveLine(AppUser actor, long purchaseOrderId, long productId, int quantity, UUID requestId) {
+        require(actor, Permission.MANAGE_PURCHASE_ORDERS);
+        if (purchaseOrderId <= 0 || productId <= 0 || quantity <= 0 || requestId == null) {
+            throw new IllegalArgumentException("Positive order ID, product ID, quantity and request UUID are required");
+        }
+        return orders.receiveLine(purchaseOrderId, productId, quantity, actor.id(), requestId);
+    }
+
     public void transition(AppUser actor, long purchaseOrderId,
                            PurchaseOrderStatus current, PurchaseOrderStatus next) {
         require(actor, Permission.MANAGE_PURCHASE_ORDERS);
-        if (!current.canTransitionTo(next)) {
+        if (current == null || next == null || !current.canTransitionTo(next)) {
             throw new IllegalArgumentException("Invalid purchase-order transition: " + current + " to " + next);
         }
         if (!orders.changeStatus(purchaseOrderId, current, next)) {

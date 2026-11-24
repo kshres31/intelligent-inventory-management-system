@@ -16,6 +16,7 @@ import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.UUID;
 
 public final class InventoryCli {
     private final UserRepository users;
@@ -69,6 +70,7 @@ public final class InventoryCli {
             case "purchase-orders" -> showPurchaseOrders(actor, args);
             case "create-order" -> createOrder(actor, args);
             case "add-order-line" -> addOrderLine(actor, args);
+            case "receive-order-line" -> receiveOrderLine(actor, args);
             case "order-status" -> changeOrderStatus(actor, args);
             case "users" -> showUsers(actor, args);
             case "create-user" -> createUser(actor, args);
@@ -249,6 +251,14 @@ public final class InventoryCli {
         out.println("Purchase-order line created: " + id);
     }
 
+    private void receiveOrderLine(AppUser actor, String[] args) {
+        requireArgs(args, 6);
+        int receivedQuantity = purchaseOrders.receiveLine(
+                actor, longArg(args, 2), longArg(args, 3), intArg(args, 4), UUID.fromString(args[5])
+        );
+        out.println("Receipt recorded. Line received quantity at this receipt: " + receivedQuantity);
+    }
+
     private void changeOrderStatus(AppUser actor, String[] args) {
         requireArgs(args, 5);
         purchaseOrders.transition(
@@ -313,6 +323,7 @@ public final class InventoryCli {
         out.println("       deactivate-product <id>, users [all], create-user <username> <displayName> <role> <email|->");
         out.println("Orders: purchase-orders [limit], create-order <number> <supplierId> <warehouseId> <date|-> [notes]");
         out.println("        add-order-line <orderId> <productId> <quantity> <unitCost>");
+        out.println("        receive-order-line <orderId> <productId> <quantity> <requestUUID> (reuse UUID for retries)");
         out.println("        order-status <orderId> <current> <next>");
         out.println("Alerts: resolve-alert <alertId> <resolution note>");
     }
