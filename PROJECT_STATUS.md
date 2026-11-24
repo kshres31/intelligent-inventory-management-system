@@ -8,12 +8,13 @@ Last updated: 2026-11-24. This file lets work resume across sessions without los
 | --- | --- |
 | Repository | https://github.com/kshres31/intelligent-inventory-management-system |
 | Default branch | `main` |
-| Phase | Implementation (alerts complete, hardening next) |
-| Open work | PR #1 `feat/purchase-order-receipts` (receipts); `feature/alert-notifications` stacked on it |
-| Latest feature commit | `176860a` feat: deliver alert notifications through a transactional outbox |
-| Tests | `mvn test`: 60 run, 0 failures, 0 skipped (embedded PostgreSQL 16, 2026-11-24) |
+| Phase | Implementation (alerts and migrations complete; authentication next) |
+| Open work | Stacked PRs: #1 `feat/purchase-order-receipts` → #2 `feature/alert-notifications` → #3 `feature/migration-runner` |
+| Latest feature commits | `176860a` alert notifications (PR #2); `2c1bac6` migration runner (PR #3) |
+| Tests | `mvn test`: 70 run, 0 failures, 0 skipped, on embedded PostgreSQL and on an external PostgreSQL 16 database (2026-11-24) |
 
-Merge order: PR #1 first, then the alert-notifications PR (its base retargets to `main`).
+Merge order: #1, then #2, then #3. After each merge GitHub retargets the next PR to `main`
+only if the merged branch is deleted; otherwise change the base by hand.
 
 ## Completed functionality
 
@@ -34,34 +35,34 @@ Mapped to the project brief.
   actor recorded on stock, threshold, and receipt changes through `app.current_user_id`.
 - **Testing:** concurrent sales, transfers and receipts; rollback; alert lifecycle;
   concurrent dispatchers; permission enforcement; data-integrity constraints; webhook HTTP.
+- **Migrations:** version-tracked runner (`migrate`, `migration-status`, `baseline`) with
+  checksums, per-file transactions, advisory lock, and out-of-order protection.
 - **Tooling:** Docker Compose PostgreSQL, GitHub Actions against PostgreSQL 16.
 
 ## Remaining functionality (next milestones, in order)
 
-1. **Migration version tracking.** A Java migration runner with a `schema_migration` table
-   and checksums, so existing databases upgrade with one command instead of manual `psql`.
-   The test harness should use the same runner.
-2. **Real authentication.** Password hashing (PBKDF2 from the JDK), login for the CLI or API,
+1. **Real authentication.** Password hashing (PBKDF2 from the JDK), login for the CLI or API,
    and removal of the "username as actor" demo shortcut.
-3. **HTTP API.** A small REST layer over the existing services (no business logic in
+2. **HTTP API.** A small REST layer over the existing services (no business logic in
    handlers), with API tests for status codes and authorization.
-4. **Least-privilege database role.** Separate owner and application roles with grants.
-5. Report pagination beyond transaction history.
+3. **Least-privilege database role.** Separate owner and application roles with grants.
+4. Report pagination beyond transaction history.
 
 ## Known issues and limitations
 
 - The CLI identifies the actor by username; this is not authentication.
 - Notification delivery is at-least-once. Receivers must de-duplicate by
   `X-Inventory-Notification-Id`.
-- New SQL files must be applied manually to existing databases (documented per migration).
+- Databases created by the old Compose init scripts need a one-time `baseline <version>`.
 - No load or latency measurements have been taken; none are claimed.
 
 ## How to resume
 
 ```bash
 git fetch origin
-git checkout feature/alert-notifications   # or main once merged
+git checkout feature/migration-runner      # newest stacked branch, or main once merged
 mvn test                                   # needs only a JDK 17+ and Maven
+# Running app: docker compose up -d, set INVENTORY_DB_* vars, then migrate (see README)
 ```
 
 Design notes: `docs/architecture.md`, `docs/database-design.md`, `docs/concurrency.md`,
