@@ -41,7 +41,7 @@ This division provides defense in depth. A service check gives a clear error to 
 | View inventory and history | Yes | Yes | Yes |
 | Resolve alerts | Yes | Yes | No |
 
-Application roles are intentionally separate from PostgreSQL login roles. The application connects with one restricted database account and checks the authenticated application user's role in the service layer.
+Application roles are intentionally separate from PostgreSQL login roles. The CLI connects with one database account and checks the selected demo actor's role in the service layer. The supplied Compose account owns the database; least-privilege grants and real authentication are still future work.
 
 ## Scope choices
 
