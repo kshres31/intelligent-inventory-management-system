@@ -41,6 +41,11 @@ public final class InventoryApplication {
     }
 
     public static void main(String[] args) {
+        if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
+            // Help needs no database, so it works before configuration (and in CI image checks).
+            new InventoryCli(null, null, null, null, null, null, null, System.out).run(args);
+            return;
+        }
         try {
             var connections = new JdbcConnectionFactory(DatabaseConfig.fromEnvironment(System.getenv()));
             if (MigrationCommand.handles(args)) {
@@ -95,9 +100,7 @@ public final class InventoryApplication {
                     notificationService,
                     System.out
             );
-            if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
-                cli.run(args);
-            } else if (Boolean.parseBoolean(environment.getOrDefault("INVENTORY_DEMO_MODE", "false"))) {
+            if (Boolean.parseBoolean(environment.getOrDefault("INVENTORY_DEMO_MODE", "false"))) {
                 // Demo only: the first argument names the acting user without a password.
                 cli.run(args);
             } else {
