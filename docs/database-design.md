@@ -67,6 +67,12 @@ Stores low-stock and discrepancy alerts. A partial unique index will prevent dup
 Low-stock evaluation uses `inventory.low_stock_threshold` when a location override is set and
 the product's `reorder_threshold` otherwise.
 
+### `schema_migration`
+
+Written only by the migration runner. One row per applied file: version, description, SHA-256
+checksum, who applied it, when, duration, and whether it was recorded by `baseline` rather than
+executed. Comparing checksums on every run detects edits to files that were already applied.
+
 ### `alert_notification`
 
 A transactional outbox of alert events (`RAISED`, `ESCALATED`, `RESOLVED`) written by a trigger in

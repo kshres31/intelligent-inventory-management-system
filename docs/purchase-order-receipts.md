@@ -42,21 +42,17 @@ implemented. Ordinary stock receipts/sales/transfers are not idempotent.
 
 ## Upgrade an existing database
 
-Fresh Compose volumes apply `005_purchase_order_receipts.sql` after the original scripts.
-Existing volumes require a backup and this additive migration applied **once**; restarting
-Compose alone does not run new initialization scripts. Do not discard an existing volume.
-
-From the repository directory, while the application is stopped:
+Back up the database, then run the version-tracked runner while the application is stopped:
 
 ```powershell
-Get-Content -Raw database/005_purchase_order_receipts.sql |
-    docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U inventory_app -d inventory
+mvn -q compile exec:java "-Dexec.args=migrate"
 ```
 
-The migration runs in a transaction and creates one table and function. It does not modify
+It applies `005_purchase_order_receipts.sql` once in a transaction and records it in
+`schema_migration`. The migration creates one table and function. It does not modify
 historical orders. Older manually assigned receipt statuses may have no supporting quantities;
-review those records before treating them as delivery evidence. Do not rerun the original
-schema/seed scripts over an existing database. A version-tracked migration runner remains future work.
+review those records before treating them as delivery evidence. A database created before
+version tracking needs a one-time `baseline` first; see the README.
 
 ## Reproducible evidence
 

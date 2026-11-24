@@ -382,6 +382,7 @@ public final class InventoryCli {
 
     private void printHelp() {
         out.println("Usage: <username> <command> [arguments]");
+        out.println("Database: migrate, migration-status, baseline <version> (no username)");
         out.println("Read: inventory [query], low-stock, transactions <productId> [page] [pageSize], alerts [all]");
         out.println("Reports: most-moved [limit], discrepancies [limit], audit [limit]");
         out.println("Stock: receive|sell <productId> <warehouseId> <quantity> [reference]");
