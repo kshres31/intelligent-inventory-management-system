@@ -32,7 +32,7 @@ orders may proceed together and serialize on inventory rows if they share a prod
 This design favors correctness over maximum per-order throughput. It has not been load benchmarked.
 
 Application permission checks require an active manager or admin, including retries.
-Database login credentials and the demo actor selector are trusted in this CLI prototype;
+Database login credentials and the signed-in session (or demo mode) are trusted in this CLI prototype;
 direct SQL by a database owner can bypass application permissions and manual-transition rules.
 Do not expose this CLI/database as an authenticated public service.
 

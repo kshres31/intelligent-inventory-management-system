@@ -2,6 +2,8 @@ package com.kshres31.inventory;
 
 import com.kshres31.inventory.config.DatabaseConfig;
 import com.kshres31.inventory.config.JdbcConnectionFactory;
+import com.kshres31.inventory.controller.AuthCommand;
+import com.kshres31.inventory.controller.ConsolePasswordPrompt;
 import com.kshres31.inventory.controller.InventoryCli;
 import com.kshres31.inventory.migration.MigrationCommand;
 import com.kshres31.inventory.migration.MigrationRunner;
@@ -14,6 +16,11 @@ import com.kshres31.inventory.repository.JdbcProductRepository;
 import com.kshres31.inventory.repository.JdbcPurchaseOrderRepository;
 import com.kshres31.inventory.repository.JdbcReportRepository;
 import com.kshres31.inventory.repository.JdbcUserRepository;
+import com.kshres31.inventory.security.AuthPolicy;
+import com.kshres31.inventory.security.AuthenticationService;
+import com.kshres31.inventory.security.JdbcCredentialRepository;
+import com.kshres31.inventory.security.PasswordHasher;
+import com.kshres31.inventory.security.SessionStore;
 import com.kshres31.inventory.service.AlertNotificationService;
 import com.kshres31.inventory.service.InventoryService;
 import com.kshres31.inventory.service.ProductService;
@@ -37,6 +44,19 @@ public final class InventoryApplication {
                 return;
             }
             var users = new JdbcUserRepository(connections);
+            var environment = System.getenv();
+            var auth = new AuthCommand(
+                    new AuthenticationService(users, new JdbcCredentialRepository(connections),
+                            new PasswordHasher(PasswordHasher.DEFAULT_ITERATIONS), AuthPolicy.defaults()),
+                    SessionStore.fromEnvironment(environment),
+                    () -> environment.get("INVENTORY_SESSION_TOKEN"),
+                    new ConsolePasswordPrompt(),
+                    System.out
+            );
+            if (AuthCommand.handles(args)) {
+                auth.run(args);
+                return;
+            }
             var inventoryRepository = new JdbcInventoryRepository(connections);
             var products = new JdbcProductRepository(connections);
             var reports = new JdbcReportRepository(connections);
@@ -59,7 +79,14 @@ public final class InventoryApplication {
                     new AlertNotificationService(notificationRepository, dispatcher),
                     System.out
             );
-            cli.run(args);
+            if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
+                cli.run(args);
+            } else if (Boolean.parseBoolean(environment.getOrDefault("INVENTORY_DEMO_MODE", "false"))) {
+                // Demo only: the first argument names the acting user without a password.
+                cli.run(args);
+            } else {
+                cli.runAs(auth.currentUser(), args);
+            }
         } catch (RuntimeException error) {
             System.err.println("Error: " + error.getMessage());
             System.exit(1);
