@@ -156,7 +156,7 @@ public final class JdbcPurchaseOrderRepository implements PurchaseOrderRepositor
             }
         } catch (SQLException error) {
             if ("P0001".equals(error.getSQLState()) || "23514".equals(error.getSQLState())) {
-                throw new InventoryOperationException(error.getMessage(), error);
+                throw new InventoryOperationException(SqlErrors.businessMessage(error), error);
             }
             throw new DataAccessException("Could not receive purchase-order line", error);
         }
